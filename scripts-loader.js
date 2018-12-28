@@ -87,12 +87,12 @@ var ScriptsLoader = (function () {
                 } else {
                     throw new TypeError('priority must be numberLike. got: ' +
                                         (typeof val) + ', value is: ' + val +
-                                        ', path is: ' + key);
+                                        ', url is: ' + key);
                 }
 
                 if (isNaN(item.priority)) {
                     throw new TypeError('priority is not a numberLike. got: ' +
-                                         val + ', path is: ' + key);
+                                         val + ', url is: ' + key);
                 }
 
                 item.url = key;
@@ -177,6 +177,7 @@ var ScriptsLoader = (function () {
             loaded += 1;
             if (loaded >= total) {
                 callback && callback();
+                callback = null;
             }
         };
         for ( ; i < total; i += 1) {
