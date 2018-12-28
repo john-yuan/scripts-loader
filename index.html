@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scripts Loader</title><link rel="shortcut icon" href="./assets/images/avatar.jpeg">
+</head>
+<body>
+    <h1>Scripts Loader Demo</h1>
+    <p>
+        Please open the DevTools to see the result.
+    </p>
+    <script src="./scripts-loader.js"></script>
+    <script type="text/javascript">
+        ScriptsLoader.load({
+            "src/demo-01.js": 1,
+            "src/demo-02.a.js": 2,
+            "src/demo-02.b.js": 2,
+            "src/demo-02.c.js": 2,
+            "src/demo-03.js": 3
+        }).start(function () {
+            console.log('scripts loaded.')
+        });
+    </script>
+</body>
+</html>
