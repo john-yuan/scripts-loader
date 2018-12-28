@@ -86,7 +86,7 @@ ScriptLoader.load(urlPriorityMap);
 ScriptsLoader.prototype.start(onfinish);
 ```
 
-以下为一个示例，你可以 clone 本项目，访问 index.html，然后打开控制台查看效果。
+以下是一个示例。你可以访问这个[演示页面](https://john-yuan.github.io/scripts-loader/index.html "演示页面")，然后打开控制台，切换至 Network 选项卡查看加载效果。
 
 ```html
 <script src="./scripts-loader.js"></script>
