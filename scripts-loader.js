@@ -15,14 +15,19 @@ var ScriptsLoader = (function () {
      * @class
      * @param {UrlPriorityMap} urlPriorityMap 配置信息
      */
-    var ScriptsLoader = function(urlPriorityMap) {
+    var ScriptsLoader = function(urlPriorityMap, settings) {
         var store = {};
 
         if (!urlPriorityMap || typeof urlPriorityMap !== 'object') {
             throw new TypeError('urlPriorityMap must be an object.');
         }
 
+        if (!settings || typeof settings !== 'object') {
+            settings = {};
+        }
+
         store.urlPriorityMap = urlPriorityMap;
+        store.settings = settings;
         store.list = [];
         store.started = false;
 
@@ -30,9 +35,23 @@ var ScriptsLoader = (function () {
     };
 
     /**
+     * 注册脚本加载生命周期回调函数
+     *
+     * 注意：最多只能注册一个生命周期函数，后面设置的会覆盖前面的。
+     *
+     * @param {(event: LifecycleEvent) => void} onlifecycle 生命周期回调函数
+     * @returns {ScriptsLoader} 返回 this
+     */
+    ScriptsLoader.prototype.lifecycle = function (onlifecycle) {
+        this.store.onlifecycle = onlifecycle;
+        return this;
+    };
+
+    /**
      * 开始加载脚本，这个函数只能被调用一次，多余的调用将会被忽略
      *
      * @param {() => void} [onfinish] 下载完成回调
+     * @returns {ScriptsLoader} 返回 this
      */
     ScriptsLoader.prototype.start = function (onfinish) {
         var store = this.store;
@@ -43,71 +62,28 @@ var ScriptsLoader = (function () {
         }
 
         var list = store.list;
+        var settings = store.settings;
+        var onlifecycle = store.onlifecycle;
         var fromIndex = 0;
-        var length = list.length;
 
         var start = function () {
             var loadList = getLoadList(list, fromIndex);
 
             if (loadList) {
                 fromIndex = loadList.nextIndex;
-                loadScripts(loadList.list, start);
+                loadScripts(loadList.list, settings, onlifecycle, start);
             } else {
-                onfinish && onfinish();
+                var callback = onfinish;
+                onfinish = null;
+                callback && callback();
             }
         };
 
         store.started = true;
 
         start();
-    };
 
-    /**
-     * 解析 Url 与优先级映射表
-     *
-     * @param {ScriptsLoader#store} ScriptsLoader 的 store 属性
-     * @return {Object} 返回修改过的 store
-     */
-    var parseUrlPriorityMap = function (store) {
-        var urlPriorityMap = store.urlPriorityMap;
-        var list = [];
-        var key;
-        var val;
-        var item;
-
-        for (key in urlPriorityMap) {
-            if (urlPriorityMap.hasOwnProperty(key)) {
-                val = urlPriorityMap[key];
-                item = {};
-
-                if (typeof val === 'number') {
-                    item.priority = val;
-                } else if (typeof val === 'string') {
-                    item.priority = parseInt(val, 10);
-                } else {
-                    throw new TypeError('priority must be numberLike. got: ' +
-                                        (typeof val) + ', value is: ' + val +
-                                        ', path is: ' + key);
-                }
-
-                if (isNaN(item.priority)) {
-                    throw new TypeError('priority is not a numberLike. got: ' +
-                                         val + ', path is: ' + key);
-                }
-
-                item.url = key;
-
-                list.push(item);
-            }
-        }
-
-        list.sort(function (a, b) {
-            return a.priority - b.priority;
-        });
-
-        store.list = list;
-
-        return store;
+        return this;
     };
 
     /**
@@ -167,63 +143,239 @@ var ScriptsLoader = (function () {
      * 加载 urls 列表中的所有脚本
      *
      * @param {string[]} urls 脚本地址列表
-     * @param {() => void} [callback] 下载完成回调
+     * @param {LoadScriptSettings} settings 脚本配置信息
+     * @param {(event: LifecycleEvent) => void} onlifecycle 生命周期回调函数
+     * @param {() => void} [onfinish] 下载完成回调
      */
-    var loadScripts = function (urls, callback) {
+    var loadScripts = function (urls, settings, onlifecycle, onfinish) {
         var i = 0;
         var total = urls.length;
         var loaded = 0;
-        var done = function () {
+        var finish = function () {
             loaded += 1;
             if (loaded >= total) {
+                var callback = onfinish;
+                onfinish = null;
                 callback && callback();
             }
         };
         for ( ; i < total; i += 1) {
-            loadScript(urls[i], done);
+            loadScript(urls[i], settings, function (event) {
+                if (onlifecycle) {
+                    try {
+                        onlifecycle(event);
+                    } catch (e) {
+                        // 不要阻塞当前的程序的执行
+                        setTimeout(function () {
+                            throw e;
+                        });
+                    }
+                }
+                if (event.finished) {
+                    if (event.error) {
+                        throw event;
+                    } else {
+                        finish();
+                    }
+                }
+            });
         }
     };
 
     /**
-     * 加载指定的脚本
+     * 加载脚本生命周期事件
+     * @typedef {Object} LifecycleEvent
+     * @property {string} url 脚本 url
+     * @property {Object} settings 配置信息
+     * @property {boolean} error 是否出错
+     * @property {boolean} finished 是否完成
+     * @property {number} code 状态码
+     * @property {string} type 状态文本
+     * @property {string} message 提示信息
      *
-     * @param {string} url 脚本位置
-     * @param {() => void} [callback] 下载完成回调
+     * code - type - 说明：
+     *
+     * 1 - EVENT_LOADING  - 加载中
+     * 2 - EVENT_SUCCESS  - 加载成功
+     * 3 - ERROR_TIMEOUT  - 已超时
+     * 4 - ERROR_NETWORK  - 网络错误
+     * 5 - ERROR_SETTINGS - 配置错误
      */
-    var loadScript = function (url, callback) {
+
+    /**
+     * 加载脚本设置
+     * @typedef {Object} LoadScriptSettings
+     * @property {number} [timeout] 超时时间，没有设置或者设置为 0 表示一直等待
+     * @property {Object.<string, *>} [attrs] 设置 script 标签属性
+     */
+
+    /**
+     * @param {string} url 脚本地址
+     * @param {LoadScriptSettings} settings 设置
+     * @param {(event: LifecycleEvent) => void} onlifecycle 生命周期回调函数
+     */
+    var loadScript = function (url, settings, onlifecycle) {
         var script = document.createElement('script');
-        var finish = function () {
-            var fn = callback;
-
-            callback = null;
-            script.onload = null;
-            script.onerror = null;
-            script.onreadystatechange = null;
-            script = null;
-            finish = null;
-
-            fn && fn();
+        var onloadSupported = 'onload' in script;
+        var timeoutId = null;
+        var finish = function (event) {
+            if (timeoutId !== null) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            if (onlifecycle) {
+                var callback = onlifecycle;
+                event.url = url;
+                event.settings = settings;
+                event.finished = true;
+                // 将此函数设置为 null，确保以后不再执行
+                onlifecycle = null;
+                callback(event);
+            }
         };
 
+        if (!settings) {
+            settings = {};
+        }
+
+        // 默认属性
         script.type = 'text/javascript';
         script.charset = 'utf-8';
+
+        // 设置 script 标签 attrs
+        if (settings.attrs) {
+            var key;
+            var attrs = settings.attrs;
+            for (key in attrs) {
+                if (attrs.hasOwnProperty(key)) {
+                    script.setAttribute(key, attrs[key]);
+                }
+            }
+        }
+
+        // 设置链接
         script.src = url;
 
-        if ('onload' in script) {
-            script.onload = finish;
+        // 设置超时时间
+        if (settings.timeout) {
+            var timeout = parseInt(settings.timeout);
+            if (isNaN(timeout)) {
+                finish({
+                    error: true,
+                    code: 5,
+                    type: 'ERROR_SETTINGS',
+                    message: 'timeout is not an number'
+                });
+            } else {
+                timeoutId = setTimeout(function () {
+                    timeoutId = null;
+                    finish({
+                        error: true,
+                        code: 3,
+                        type: 'ERROR_TIMEOUT',
+                        message: 'timeout'
+                    });
+                }, timeout);
+            }
+        }
+
+        // 监听脚本加载完成事件
+        if (onloadSupported) {
+            script.onload = function () {
+                finish({
+                    error: false,
+                    code: 2,
+                    type: 'EVENT_SUCCESS',
+                    message: 'finished'
+                });
+            };
         } else {
             script.onreadystatechange = function () {
                 if (script.readyState === 'complete' ||
                     script.readyState === 'loaded')
                 {
-                    finish();
+                    finish({
+                        error: false,
+                        code: 2,
+                        type: 'EVENT_SUCCESS',
+                        message: 'finished'
+                    });
                 }
             };
         }
 
-        script.onerror = finish;
+        // 设置错误回调
+        script.onerror = function () {
+            finish({
+                error: true,
+                code: 3,
+                type: 'ERROR_NETWORK',
+                message: 'Network Error'
+            });
+        };
+
+        // 触发开始加载事件
+        if (onlifecycle) {
+            onlifecycle({
+                url: url,
+                settings: settings,
+                finished: false,
+                error: false,
+                code: 1,
+                type: 'EVENT_LOADING',
+                message: 'start loading'
+            });
+        }
 
         headElement.appendChild(script);
+    };
+
+    /**
+     * 解析 Url 与优先级映射表
+     *
+     * @param {ScriptsLoader#store} ScriptsLoader 的 store 属性
+     * @return {Object} 返回修改过的 store
+     */
+    var parseUrlPriorityMap = function (store) {
+        var urlPriorityMap = store.urlPriorityMap;
+        var list = [];
+        var key;
+        var val;
+        var item;
+
+        for (key in urlPriorityMap) {
+            if (urlPriorityMap.hasOwnProperty(key)) {
+                val = urlPriorityMap[key];
+                item = {};
+
+                if (typeof val === 'number') {
+                    item.priority = val;
+                } else if (typeof val === 'string') {
+                    item.priority = parseInt(val, 10);
+                } else {
+                    throw new TypeError('priority must be numberLike. got: ' +
+                                        (typeof val) + ', value is: ' + val +
+                                        ', path is: ' + key);
+                }
+
+                if (isNaN(item.priority)) {
+                    throw new TypeError('priority is not a numberLike. got: ' +
+                                         val + ', path is: ' + key);
+                }
+
+                item.url = key;
+
+                list.push(item);
+            }
+        }
+
+        list.sort(function (a, b) {
+            return a.priority - b.priority;
+        });
+
+        store.list = list;
+
+        return store;
     };
 
     /**
@@ -237,8 +389,8 @@ var ScriptsLoader = (function () {
      * @param {UrlPriorityMap} urlPriorityMap Url 和优先级映射表
      * @returns {ScriptsLoader}
      */
-    ScriptsLoader.load = function (urlPriorityMap) {
-        return new ScriptsLoader(urlPriorityMap);
+    ScriptsLoader.load = function (urlPriorityMap, settings) {
+        return new ScriptsLoader(urlPriorityMap, settings);
     };
 
     /**

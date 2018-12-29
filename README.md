@@ -61,48 +61,109 @@ src/demo-01.js |
 
 以上便是需求。
 
-## API 及 示例
+## API
 
-我们定义了一个 ScriptLoader 类，她有一个静态方法可以用于创建 ScriptLoader 实例：
+根据以上需求，我们定义了一个 ScriptLoader 类，她有一个静态方法可以用于创建 ScriptLoader 实例：
 
 ```js
 /**
- * 使用指定的 urlPriorityMap 创建一个 ScriptLoader
+ * 创建一个 ScriptLoader
  *
  * @param {Object} urlPriorityMap  脚本 URL 和优先级映射表
+ * @param {Object} [settings={}] 可选的配置信息
  * @returns {ScriptsLoader}
  */
-ScriptLoader.load(urlPriorityMap);
+ScriptLoader.load(urlPriorityMap, settings);
 ```
 
-根据返回的 ScriptLoader 实例，我们可以调用该实例的 start 方法以开始加载脚本。该方法的签名如下：
+如果你想监听每个脚本加载过程的生命周期事件，你可以注册一个 lifecycle 函数，在该函数中可以监听到所有脚本的生命周期事件。函数签名如下：
 
 ```js
 /**
- * 开始加载脚本，这个函数只能被调用一次，多余的调用将会被忽略
+ * 注册脚本加载生命周期回调函数
+ *
+ * 注意：最多只能注册一个生命周期函数，后面设置的会覆盖前面的。
+ *
+ * @param {(event: LifecycleEvent) => void} onlifecycle 生命周期回调函数
+ * @returns {ScriptsLoader} 返回 this
+ */
+ScriptsLoader.prototype.lifecycle(onlifecycle);
+```
+
+每次 lifecycle 回调函数被调用时，会收到一个 LifecycleEvent 对象，该对象中包含的事件相关信息，其类型定义如下：
+
+```js
+/**
+ * 加载脚本生命周期事件
+ * @typedef  {Object}  LifecycleEvent
+ * @property {string}  url 脚本 url
+ * @property {Object}  settings 配置信息
+ * @property {boolean} error 是否出错
+ * @property {boolean} finished 是否完成
+ * @property {number}  code 状态码
+ * @property {string}  type 状态文本
+ * @property {string}  message 提示信息
+ *
+ * code - type - 说明：
+ *
+ * 1 - EVENT_LOADING  - 加载中
+ * 2 - EVENT_SUCCESS  - 加载成功
+ * 3 - ERROR_TIMEOUT  - 已超时
+ * 4 - ERROR_NETWORK  - 网络错误
+ * 5 - ERROR_SETTINGS - 配置错误
+ */
+```
+
+ScriptLoader 实例创建完成后，并不会立即触发加载，需要我们手动调用 start 函数，该函数签名如下：
+
+```js
+/**
+ * 开始加载脚本
+ *
+ * 注意：这个函数只能被调用一次，多余的调用将会被忽略。
  *
  * @param {() => void} [onfinish] 下载完成回调
+ * @returns {ScriptsLoader} 返回 this
  */
 ScriptsLoader.prototype.start(onfinish);
 ```
 
-以下是一个示例。你可以访问这个[演示页面](https://john-yuan.github.io/scripts-loader/index.html "演示页面")，然后打开控制台，切换至 Network 选项卡查看加载效果。
+下面是一个完整的示例：
 
-```html
-<script src="./scripts-loader.js"></script>
-<script type="text/javascript">
-    ScriptsLoader.load({
-        "src/demo-01.js": 1,
-        "src/demo-02.a.js": 2,
-        "src/demo-02.b.js": 2,
-        "src/demo-02.c.js": 2,
-        "src/demo-03.js": 3
-    }).start(function () {
-        console.log('scripts loaded.');
-    });
-</script>
+```js
+ScriptLoader.load({
+    "src/demo-01.js": 1,
+    "src/demo-02.a.js": 2,
+    "src/demo-02.b.js": 2,
+    "src/demo-02.c.js": 2,
+    "src/demo-03.js": 3
+}, {
+    // 超时时间，单位毫秒。如果设置为 0 或者不设置任何值，表示一直等待。
+    timeout: 60000,
+    // 设置 <script> 标签属性，此方法会调用 setAttribute 方法来进行设置。
+    attrs: {
+        // 以下两项为默认配置
+        "charset": "utf-8",
+        "type": "text/javascript"
+        // more ...
+    }
+}).lifecycle(function (event) {
+    console.log(event.type + ' => ' + event.url);
+}).start(function () {
+    console.log('All scripts loaded.');
+});
 ```
 
-下图为运行效果截图：
+如果你没有那么多设置，一个最简单的配置如下：
 
-![脚本加载瀑布流](./screenshot/waterfall.jpg)
+```js
+ScriptsLoader.load({
+    "src/demo-01.js": 1,
+    "src/demo-02.a.js": 2,
+    "src/demo-02.b.js": 2,
+    "src/demo-02.c.js": 2,
+    "src/demo-03.js": 3
+}).start();
+```
+
+你可以[点击此处查看在线演示页面](https://john-yuan.github.io/scripts-loader/index.html)。

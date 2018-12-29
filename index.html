@@ -3,12 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <title>Scripts Loader</title>
+    <style>
+        html {
+            font-size: 16px;
+        }
+        pre {
+            font-family: Monaco, Menlo, Consolas, monospace;
+            font-size: 16px;
+        }
+        .note {
+            background-color: #fafafa;
+            padding: .5em;
+            border-left: .5em solid #ececec;
+            color: #666;
+            line-height: 150%;
+        }
+    </style>
 </head>
 <body>
     <h1>Scripts Loader Demo</h1>
-    <p>
-        Please open the DevTools to see the result.
-    </p>
+    <div class="note">
+        <b>Note:</b><br>
+        You can open the DevTools and switch to the Network panel to see the loading waterfall.
+        If the result is not so clear to you, you can limit the network to Fast 3G (or Slow 3G if needed) to make the result more clear.
+    </div>
+
+    <div>
+        <pre id="log-list"></pre>
+    </div>
+    <script type="text/javascript">
+        var time = function () {
+            var now = new Date();
+            var addZero = function (num) {
+                if (num < 10) {
+                    return '0' + num;
+                } else {
+                    return '' + num;
+                }
+            };
+            var text = '';
+
+            text += now.getFullYear() + '-';
+            text += addZero(now.getMonth() + 1) + '-';
+            text += addZero(now.getDate()) + ' ';
+            text += addZero(now.getHours()) + ':';
+            text += addZero(now.getMinutes()) + ':';
+            text += addZero(now.getSeconds()) + ':';
+
+            var ms = now.getMilliseconds();
+
+            if (ms < 10) {
+                ms = '00' + ms;
+            } else if (ms < 100) {
+                ms = '0' + ms;
+            }
+
+            text += ms;
+
+            return text;
+        };
+
+        var log = function (message) {
+            var text = '[' + time() + '] ' + message;
+            var logList = document.getElementById('log-list');
+
+            logList.innerHTML += text + "\n";
+        };
+    </script>
     <script src="./scripts-loader.js"></script>
     <script type="text/javascript">
         ScriptsLoader.load({
@@ -17,8 +78,10 @@
             "src/demo-02.b.js": 2,
             "src/demo-02.c.js": 2,
             "src/demo-03.js": 3
+        }).lifecycle(function (event) {
+            log(event.type + ' => ' + event.url);
         }).start(function () {
-            console.log('scripts loaded.')
+            log('All scripts loaded.')
         });
     </script>
 </body>
