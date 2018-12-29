@@ -157,7 +157,6 @@ var ScriptsLoader = (function () {
                 var callback = onfinish;
                 onfinish = null;
                 callback && callback();
-                callback = null;
             }
         };
         for ( ; i < total; i += 1) {
