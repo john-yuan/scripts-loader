@@ -14,6 +14,7 @@ var ScriptsLoader = (function () {
      *
      * @class
      * @param {UrlPriorityMap} urlPriorityMap 配置信息
+     * @param {Object} [settings={}] 可选的配置信息
      */
     var ScriptsLoader = function(urlPriorityMap, settings) {
         var store = {};
@@ -387,6 +388,7 @@ var ScriptsLoader = (function () {
      * 使用指定的 urlPriorityMap 创建一个 ScriptLoader
      *
      * @param {UrlPriorityMap} urlPriorityMap Url 和优先级映射表
+     * @param {Object} [settings={}] 可选的配置信息
      * @returns {ScriptsLoader}
      */
     ScriptsLoader.load = function (urlPriorityMap, settings) {

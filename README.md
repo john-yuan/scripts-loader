@@ -6,9 +6,12 @@
 * 按分组顺序加载脚本：各分组按照指定顺序进行串行加载，分组内的脚步并行加载；
 * 支持以上两种加载方式的任意组合。
 
-> 注意：此工具只有在需要**动态加载脚本**的时候才有使用的必要。如果是静态加载，直接使用 `<script>` 标签是更明智的选择。
+你可以[点击此处查看在线演示页面][1]。
 
 ![Scripts Loader Demo](./screenshot/waterfall.jpg)
+
+
+> 注意：此工具只有在需要**动态加载脚本**的时候才有使用的必要。如果是静态加载，直接使用 `<script>` 标签是更明智的选择。
 
 ## 说明
 
@@ -168,4 +171,6 @@ ScriptsLoader.load({
 }).start();
 ```
 
-你可以[点击此处查看在线演示页面](https://john-yuan.github.io/scripts-loader/index.html)。
+你可以[点击此处查看在线演示页面][1]。
+
+[1]: https://john-yuan.github.io/scripts-loader/index.html
