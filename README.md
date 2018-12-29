@@ -8,6 +8,8 @@
 
 > 注意：此工具只有在需要**动态加载脚本**的时候才有使用的必要。如果是静态加载，直接使用 `<script>` 标签是更明智的选择。
 
+![Scripts Loader Demo](./screenshot/waterfall.jpg)
+
 ## 说明
 
 假设现有一个项目结构如下：
