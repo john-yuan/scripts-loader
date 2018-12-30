@@ -173,4 +173,4 @@ ScriptsLoader.load({
 
 你可以[点击此处查看在线演示页面][1]。
 
-[1]: https://john-yuan.github.io/scripts-loader/index.html
+[1]: https://john-yuan.github.io/scripts-loader.js/index.html
