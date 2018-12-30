@@ -72,7 +72,7 @@ var ScriptsLoader = (function () {
 
             if (loadList) {
                 fromIndex = loadList.nextIndex;
-                loadScripts(loadList.list, settings, onlifecycle, start);
+                loadScripts(loadList.urls, settings, onlifecycle, start);
             } else {
                 var callback = onfinish;
                 onfinish = null;
@@ -96,8 +96,8 @@ var ScriptsLoader = (function () {
 
     /**
      * @typedef {Object.<string, *>} LoadListInfo
-     * @property {string[]} url 脚本地址列表
-     * @property {number} nextIndex 下一次查找开始的位置
+     * @property {string[]} urls 脚本地址列表
+     * @property {number} nextIndex 下一次查找开始的位置，如果越界则表明全部查找完毕
      */
 
     /**
@@ -113,27 +113,25 @@ var ScriptsLoader = (function () {
         if (first) {
             var priority = first.priority;
             var length = list.length;
-            var loadList = [];
+            var urls = [];
             var item;
-            var nextIndex;
 
-            loadList.push(first.url);
+            urls.push(first.url);
 
             fromIndex += 1;
 
             for ( ; fromIndex < length; fromIndex += 1) {
                 item = list[fromIndex];
                 if (item.priority === priority) {
-                    loadList.push(item.url);
+                    urls.push(item.url);
                 } else {
-                    nextIndex = fromIndex;
                     break;
                 }
             }
 
             return {
-                list: loadList,
-                nextIndex: nextIndex
+                urls: urls,
+                nextIndex: fromIndex
             };
         } else {
             return null;
